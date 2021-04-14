@@ -18,13 +18,13 @@ class SelfAttention(nn.Module):
     
 
     def forward(self, queries, keys, values):
-        N = query.shape[0]
+        N = queries.shape[0]
         key_len, query_len, value_len = keys.shape[1], queries.shape[1], values.shape[1]
 
         ## split embedding into self.heads pieces
         values = values.reshape(N, value_len, self.heads, self.head_dimension) 
         keys = keys.reshape(N, key_len, self.heads, self.head_dimension) 
-        query = query.reshape(N, query_len, self.heads, self.head_dimension) 
+        queries = queries.reshape(N, query_len, self.heads, self.head_dimension) 
 
         ## get attention based keys, queries and values
         keys = self.keys(keys)
@@ -36,7 +36,7 @@ class SelfAttention(nn.Module):
         ## keys shape: (N, key_len, heads, head_dimension)
         ## energy shape: (N, heads, query_len, key_len)
 
-        energy = torch.einsum("nqhd, nkhq-> nhqk", [queries, keys])
+        energy = torch.einsum("nqhd, nkhd-> nhqk", [queries, keys])
 
         ## attention = softmax(QK/sqrt(dk))
         attention = torch.softmax(energy / (self.embed_size**(1/2)), dim=3)
