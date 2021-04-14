@@ -17,7 +17,7 @@ class TransformerBlock(nn.Module):
     
     def forward(self, queries, keys, values, mask):
         attention = self.attention(queries, keys, values, mask)
-        x = self.dropout(self.norm1(attention + x))
+        x = self.dropout(self.norm1(attention + queries))
         forward = self.feed_forward(x)
         out = self.dropout(self.norm2(forward + x))
 
