@@ -3,6 +3,8 @@ import torch.nn as nn
 from transformer import TransformerBlock
 from data import *
 import torch.optim as optim
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from tqdm import tqdm
 
 class TransformerClassifier(nn.Module):
     def __init__(self, 
@@ -29,7 +31,7 @@ class TransformerClassifier(nn.Module):
         self.dropout = nn.Dropout(dropout)
         
         self.fc_out = nn.Linear(max_length * embed_size, out_size)
-        self.sigmoid = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=1)
     
     def forward(self, x):
         N, seq_length = x.shape
@@ -41,43 +43,33 @@ class TransformerClassifier(nn.Module):
         for layer in self.layers:
             out = layer(out, out, out)
 
-        #print(out.shape)
         out = out.reshape(N, self.max_length * embed_size) 
         out = self.fc_out(out)
         
-        #print(out.shape)
-        out = self.sigmoid(out)
+        out = self.softmax(out)
 
         return out
         
 
 if __name__ == "__main__":
-    DATA_PATH = '~/Desktop/transformers-bisected/'
+    DATA_PATH = './'
     TRAIN_FILE_NAME = 'train.tsv'
-    max_length = 100
-    batch_size = 32
+    max_length = 10
+    batch_size = 128
     dataset = ReviewsDataset(DATA_PATH, TRAIN_FILE_NAME, max_length, batch_size)
     dataset.load_data() ## load data to memory
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     vocab_size = len(dataset.TEXT.vocab.stoi)
     embed_size = 256
-    num_layers = 6
+    num_layers = 4
     forward_expansion = 4
     heads = 8
     dropout = 0.5
-    
-    out_size = 1
-    
-
-
-    
+    out_size = 6    
 
     train_dl = BatchWrapper(dataset.train_iterator, "Phrase", "Sentiment")
     
-    """for X, y in train_dl:
-        print(X.shape)
-        break"""
     model = TransformerClassifier(
                                                 vocab_size, 
                                                 embed_size, 
@@ -87,21 +79,24 @@ if __name__ == "__main__":
                                                 forward_expansion, 
                                                 dropout, 
                                                 max_length, 
-                                                out_size )
+                                                out_size ).to(device)
     
-    criterion = nn.BCELoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters())
 
     
-    for epoch in range(2):  # loop over the dataset multiple times
+    for epoch in range(20):  # loop over the dataset multiple times
 
-        running_loss = 0.0
-        for i, data in enumerate(train_dl, 0):
+        running_loss = []
+        y_true = list()
+        y_pred = list()
+        for data in tqdm(train_dl):
             # get the inputs; data is a list of [inputs, labels]
             
             inputs, labels = data
-            inputs = inputs.T
-            labels = labels.type(torch.FloatTensor)
+            inputs = inputs.T.to(device)
+            labels = labels#.type(torch.FloatTensor)
+            labels = labels.to(device)
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -109,19 +104,17 @@ if __name__ == "__main__":
             # forward + backward + optimize
             outputs = model(inputs)
             outputs = outputs.squeeze(1)
-           
-            print(outputs.type(), labels.type())
+
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
 
-            # print statistics
-            running_loss += loss.item()
-            if i % 2000 == 1999:    # print every 2000 mini-batches
-                print('[%d, %5d] loss: %.3f' %
-                    (epoch + 1, i + 1, running_loss / 2000))
-                running_loss = 0.0
+            y_true += list(labels.data.int().detach().cpu().numpy()) ## accumulate targets from batch
+            #print(torch.max(outputs, 1)[1])
+            y_pred += list(torch.max(outputs, 1)[1].data.int().detach().cpu().numpy()) ## accumulate preds from batch 
 
-        #x = torch.tensor([[1, 2, 5, 2, 1, 2, 6, 8, 9, 0], [1, 2, 5, 2, 1, 2, 6, 7, 4, 1]])
-        #print(transformer_classifier(x))
+            # print statistics
+            running_loss.append(loss.item())
+        acc = accuracy_score(y_true, y_pred) ## computing accuracy using sklearn's function
+        print("Train loss: {} - acc: {}".format(torch.mean(torch.tensor(running_loss)), acc))
         
