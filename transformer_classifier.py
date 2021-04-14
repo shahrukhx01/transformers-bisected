@@ -1,7 +1,7 @@
 import torch 
 import torch.nn as nn
-from transformer.transformer import TransformerBlock
-from dataset.data import *
+from transformer import TransformerBlock
+from data import *
 import torch.optim as optim
 
 class TransformerClassifier(nn.Module):
@@ -52,7 +52,7 @@ class TransformerClassifier(nn.Module):
         
 
 if __name__ == "__main__":
-    DATA_PATH = '~/Desktop/transformers-bisected/dataset/'
+    DATA_PATH = '~/Desktop/transformers-bisected/'
     TRAIN_FILE_NAME = 'train.tsv'
     max_length = 100
     batch_size = 32
