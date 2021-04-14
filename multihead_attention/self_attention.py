@@ -14,7 +14,7 @@ class SelfAttention(nn.Module):
         self.keys = nn.Linear(self.head_dimension, self.head_dimension, bias=False)
         self.queries = nn.Linear(self.head_dimension, self.head_dimension, bias=False)
 
-        self.fc = nn.Linear(self.head_dimension * self.heads, self.embed_size)
+        self.fc_out = nn.Linear(self.head_dimension * self.heads, self.embed_size)
     
 
     def forward(self, queries, keys, values, mask):
@@ -26,27 +26,31 @@ class SelfAttention(nn.Module):
         keys = keys.reshape(N, key_len, self.heads, self.head_dimension) 
         query = query.reshape(N, query_len, self.heads, self.head_dimension) 
 
-       ## get attention based keys, queries and values
-       keys = self.keys(keys)
-       values = self.values(values)
-       queries = self.queries(queries)
+        ## get attention based keys, queries and values
+        keys = self.keys(keys)
+        values = self.values(values)
+        queries = self.queries(queries)
 
-      ## now perform Q.K step from the paper
-      ## queries shape: (N, query_len, heads, head_dimension)
-      ## keys shape: (N, key_len, heads, head_dimension)
-      ## energy shape: (N, heads, query_len, key_len)
+        ## now perform Q.K step from the paper
+        ## queries shape: (N, query_len, heads, head_dimension)
+        ## keys shape: (N, key_len, heads, head_dimension)
+        ## energy shape: (N, heads, query_len, key_len)
 
-      energy = torch.einsum("nqhd, nkhq-> nhqk")
+        energy = torch.einsum("nqhd, nkhq-> nhqk", [queries, keys])
 
-      if mask is not None:
-          energy = energy.masked_fill(mask==0, float("-1e20"))
-
-     ## attention = softmax(QK/sqrt(dk))
-     attention = torch.softmax(energy / (self.embed_size**(1/2)))
+        ## attention = softmax(QK/sqrt(dk))
+        attention = torch.softmax(energy / (self.embed_size**(1/2)), dim=3)
     
-     ## get final attention
-     ## attention shape: (N, heads, query_len, key_len)
-     ## values shape: (N, value_len, heads, head_dimension)
-     
+        ## get final attention
+        ## attention shape: (N, heads, query_len, key_len)
+        ## values shape: (N, value_len, heads, head_dimension)
+        out = torch.einsum("nhql, nlhd -> nqhd", [attention, values]).reshape(
+            N, query_len, self.head_dimension * self.heads
+        )
+
+        out = self.fc_out(out)
+
+        return out
+
     
      
