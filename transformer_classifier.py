@@ -23,7 +23,7 @@ class TransformerClassifier(nn.Module):
         self.embed_size = embed_size
         self.device = device
         self.word_embedding = nn.Embedding(vocab_size, embed_size)
-        self.positional_embedding = PositionalEncoding(d_model=embed_size, max_len=max_length)
+        self.positional_embedding = PositionalEncoding(d_model=embed_size, max_len=vocab_size)
         self.max_length = max_length
 
         self.layers = nn.ModuleList([
@@ -33,13 +33,18 @@ class TransformerClassifier(nn.Module):
         
         self.fc_out = nn.Linear(max_length * embed_size, out_size)
         self.softmax = nn.Softmax(dim=1)
+        self.init_weights()
+    
+    def init_weights(self):
+        initrange = 0.1
+        self.word_embedding.weight.data.uniform_(-initrange, initrange)
     
     def forward(self, x):
         N, seq_length = x.shape
-        positions = torch.arange(0, seq_length).expand(N, seq_length).to(self.device)
+        #positions = torch.arange(0, seq_length).expand(N, seq_length).to(self.device)
 
-        out = self.dropout(self.word_embedding(x) + self.positional_embedding(positions))
-
+        embed = self.word_embedding(x) 
+        out = self.positional_embedding(embed)
 
         for layer in self.layers:
             out = layer(out, out, out)
@@ -47,14 +52,14 @@ class TransformerClassifier(nn.Module):
         out = out.reshape(N, self.max_length * embed_size) 
         out = self.fc_out(out)
         
-        out = self.softmax(out)
+        #out = self.softmax(out)
 
         return out
         
 
 if __name__ == "__main__":
     DATA_PATH = './'
-    TRAIN_FILE_NAME = 'train.tsv'
+    TRAIN_FILE_NAME = 'amazon_music_intrusment_reviews.csv'
     max_length = 10
     batch_size = 128
     dataset = ReviewsDataset(DATA_PATH, TRAIN_FILE_NAME, max_length, batch_size)

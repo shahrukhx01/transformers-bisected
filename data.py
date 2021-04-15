@@ -32,7 +32,7 @@ class ReviewsDataset():
         self.train_data = TabularDataset.splits(
             path='{}'.format(self.data_path),
             train='{}'.format(self.train_path),
-            format='tsv',
+            format='csv',
             fields=self.fields)[0]
         
         self.TEXT.build_vocab(self.train_data, max_size=10000, min_freq=1)
