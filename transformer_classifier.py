@@ -5,6 +5,7 @@ from data import *
 import torch.optim as optim
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from tqdm import tqdm
+from positional_embedding import PositionalEncoding
 
 class TransformerClassifier(nn.Module):
     def __init__(self, 
@@ -22,7 +23,7 @@ class TransformerClassifier(nn.Module):
         self.embed_size = embed_size
         self.device = device
         self.word_embedding = nn.Embedding(vocab_size, embed_size)
-        self.positional_embedding = nn.Embedding(max_length, embed_size)
+        self.positional_embedding = PositionalEncoding(d_model=embed_size, max_len=max_length)
         self.max_length = max_length
 
         self.layers = nn.ModuleList([
